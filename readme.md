@@ -89,25 +89,20 @@ This tool uses Puppeteer to authenticate with Vue School and navigate through co
 
 The downloader automatically organizes videos by course and numbers them sequentially. The implementation downloads video and audio streams separately as that's the format in which the content is available. The tool also supports resuming interrupted downloads and will only download missing or incomplete files when restarted.
 
-### Checking for Missing Videos
+### Automatic Recovery for Missing Videos
 
-Due to network issues or temporary failures, some videos might occasionally fail to download. After downloading a course:
+The tool now automatically checks for missing or incomplete files after downloading a course and attempts to redownload them:
 
-1. Check the course folder in your downloads directory
-2. Verify that all lessons are present (both video and audio files)
-3. If you notice missing lessons, simply run the download command again with the same course URL
-    ```bash
-    vuesch-dl https://vueschool.io/courses/vuejs-3-fundamentals -e your@email.com -p yourpassword
-    ```
-4. The tool will only download missing or incomplete files
-5. If you want to re-download all lessons in a course (even if they exist), use the `-f` flag
+1. After a course download completes, the system verifies all lessons
+2. Any missing or incomplete files are automatically detected
+3. The tool will retry downloading these files without manual intervention
+4. If you still want to force a complete redownload of all lessons in a course, use the `-f` flag:
     ```bash
     vuesch-dl https://vueschool.io/courses/vuejs-3-fundamentals -e your@email.com -p yourpassword -f
     ```
 
 ## TODO
-
--   [ ] Fix bug causing incomplete downloads of course videos
+-   [x] Fix bug causing incomplete downloads of course videos
 -   [ ] Implement automatic joining of audio and video files
 -   [ ] Add progress bars for downloads
 -   [ ] Support for custom video quality selection
