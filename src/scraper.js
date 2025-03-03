@@ -1,12 +1,13 @@
 import puppeteer from "puppeteer";
 import path from "path";
 import fs from "fs/promises";
-import { execa } from "execa";
+import VideoDownloader from "./utils/videoDownloader.js";
 
 export default class Scraper {
     constructor() {
         this.browser = null;
         this.page = null;
+        this.videoDownloader = null;
     }
 
     async init() {
@@ -15,6 +16,7 @@ export default class Scraper {
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
         });
         this.page = await this.browser.newPage();
+        this.videoDownloader = new VideoDownloader(this.page);
     }
     async login(email, password) {
         await this.page.goto("https://vueschool.io/login", {
@@ -227,26 +229,26 @@ export default class Scraper {
         );
         return courseData;
     }
-    async downloadCourse(courseUrl, outputDir = "./downloads") {
+    async downloadCourse(courseUrl, outputDir = "./downloads", retryCount = 0, maxRetries = 5) {
         console.log(`Downloading course: ${courseUrl}`);
         const courseData = await this.getCourseData(courseUrl);
-
+    
         // Create directory for the course
         const courseDir = path.join(
             outputDir,
             courseData.title.replace(/[/\\?%*:|"<>]/g, "-")
         );
         await fs.mkdir(courseDir, { recursive: true });
-
+    
         console.log(`Course: ${courseData.title}`);
         console.log(`Found ${courseData.videos.length} videos`);
         console.log(`Output directory: ${courseDir}`);
-
+    
         // Use the lessonsToDownload array if it exists, otherwise download all
         const indexesToDownload =
             this.lessonsToDownload ||
             Array.from({ length: courseData.videos.length }, (_, i) => i);
-
+    
         // Download only the specified lessons
         for (const index of indexesToDownload) {
             const video = courseData.videos[index];
@@ -256,7 +258,7 @@ export default class Scraper {
                 courseDir,
                 `${videoNumber}-${videoTitle}.mp4`
             );
-
+    
             console.log(
                 `Downloading (${index + 1}/${courseData.videos.length}): ${
                     video.title
@@ -265,37 +267,29 @@ export default class Scraper {
             console.log(`URL: ${video.url}`);
             await this.downloadVideo(video.url, outputPath);
         }
-
+    
         // Verify all lessons were downloaded successfully
         console.log("Verifying downloaded files...");
         const files = await fs.readdir(courseDir);
-
-        // Create a set of existing complete files
-        const existingFiles = new Set(
-            files
-                .filter((file) => file.endsWith(".mp4"))
-                .map((file) => {
-                    const match = file.match(/^(\d+)-/);
-                    return match ? parseInt(match[1]) : null;
-                })
-                .filter((num) => num !== null)
+    
+        // Use the identifyMissingLessons function from courseVerifier.js
+        const { identifyMissingLessons } = await import(
+            "./utils/courseVerifier.js"
         );
-
-        // Check for missing files
-        const missingLessons = [];
-        for (let i = 1; i <= courseData.videos.length; i++) {
-            if (!existingFiles.has(i)) {
-                missingLessons.push(i - 1); // Convert to 0-based index
-            }
-        }
-
+        const missingLessons = await identifyMissingLessons(
+            files,
+            courseData.videos.length,
+            retryCount,
+            maxRetries
+        );
+    
         // If there are missing lessons, retry downloading them
         if (missingLessons.length > 0) {
             console.log(
-                `Found ${missingLessons.length} missing lessons. Retrying download...`
+                `Found ${missingLessons.length} missing lessons. Retry attempt ${retryCount + 1}/${maxRetries}...`
             );
             this.lessonsToDownload = missingLessons;
-            await this.downloadCourse(courseUrl, outputDir);
+            await this.downloadCourse(courseUrl, outputDir, retryCount + 1, maxRetries);
         } else {
             console.log(`Course downloaded successfully: ${courseData.title}`);
         }
@@ -322,199 +316,7 @@ export default class Scraper {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
     async downloadVideo(videoUrl, outputPath) {
-        // Path to yt-dlp executable
-        const ytdlpDir = path.join(process.cwd(), "bin");
-        const ytdlpPath = path.join(ytdlpDir, "yt-dlp.exe");
-
-        try {
-            // Navigate to video page to get updated cookies
-            await this.page.goto(videoUrl, { waitUntil: "networkidle0" });
-
-            // Wait for Vimeo iframe to appear
-            const iframeExists = await this.page.evaluate(() => {
-                return (
-                    document.querySelector(
-                        'iframe[src*="player.vimeo.com"]'
-                    ) !== null
-                );
-            });
-
-            // Only wait if iframe doesn't exist yet
-            if (!iframeExists) {
-                await this.page.waitForFunction(
-                    () => {
-                        return (
-                            document.querySelector(
-                                'iframe[src*="player.vimeo.com"]'
-                            ) !== null
-                        );
-                    },
-                    { timeout: 3000, polling: 50 }
-                );
-            }
-
-            // Extract URL from Vimeo iframe
-            const videoData = await this.page.evaluate(() => {
-                // Find Vimeo iframe
-                const vimeoIframe = document.querySelector(
-                    'iframe[src*="player.vimeo.com"]'
-                );
-                if (vimeoIframe) {
-                    return {
-                        type: "vimeo_iframe",
-                        url: vimeoIframe.src,
-                        width: vimeoIframe.width,
-                        height: vimeoIframe.height,
-                    };
-                }
-                return null;
-            });
-
-            if (videoData && videoData.type === "vimeo_iframe") {
-                // Extract Vimeo ID from iframe URL
-                const vimeoIdMatch = videoData.url.match(/video\/(\d+)/);
-                const vimeoId = vimeoIdMatch ? vimeoIdMatch[1] : null;
-
-                if (vimeoId) {
-                    // Complete Vimeo URL to use in download attempts
-                    const vimeoUrl = `https://player.vimeo.com/video/${vimeoId}`;
-
-                    // Use yt-dlp with specific options for Vimeo - limited to 720p
-                    const options = [
-                        // Select 720p video and best available audio
-                        "--format",
-                        "bestvideo[height<=720]+bestaudio/best[height<=720]",
-                        "--merge-output-format",
-                        "mp4",
-                        "--referer",
-                        videoUrl,
-                        "--add-header",
-                        `Referer: ${videoUrl}`,
-                        "--user-agent",
-                        await this.page.evaluate(() => navigator.userAgent),
-                        "-o",
-                        outputPath,
-                    ];
-
-                    // Implement retry mechanism for the main method
-                    const maxRetries = 3;
-                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                        try {
-                            console.log(
-                                `Attempting to download from Vimeo (attempt ${attempt}/${maxRetries}): ${vimeoUrl}`
-                            );
-
-                            // If not first attempt, wait before retrying
-                            if (attempt > 1) {
-                                console.log(
-                                    `Waiting 2 seconds before retry...`
-                                );
-                                await this.waitForTimeout(2000);
-
-                                // Add option to ignore existing temporary files in retries
-                                options.push("--force-overwrites");
-                            }
-
-                            await execa(ytdlpPath, [...options, vimeoUrl]);
-                            console.log(
-                                `✓ Video downloaded: ${path.basename(
-                                    outputPath
-                                )}`
-                            );
-
-                            // Clean up ALL .part files for this specific lesson
-                            const baseFileName = path.basename(
-                                outputPath,
-                                ".mp4"
-                            );
-                            const dirName = path.dirname(outputPath);
-
-                            try {
-                                // Get all files in the directory
-                                const files = await fs.readdir(dirName);
-
-                                // Find and remove any .part files related to this lesson
-                                for (const file of files) {
-                                    if (
-                                        file.startsWith(baseFileName) &&
-                                        (file.endsWith(".part") ||
-                                            file.endsWith(".ytdl"))
-                                    ) {
-                                        const partFilePath = path.join(
-                                            dirName,
-                                            file
-                                        );
-                                        await fs.unlink(partFilePath);
-                                        console.log(
-                                            `Cleaned up incomplete file: ${file}`
-                                        );
-                                    }
-                                }
-                            } catch (cleanupError) {
-                                console.log(
-                                    `Warning: Could not clean up some temporary files: ${cleanupError.message}`
-                                );
-                            }
-
-                            return;
-                        } catch (vimeoError) {
-                            console.error(
-                                `Error in attempt ${attempt}: ${vimeoError.message}`
-                            );
-
-                            // If it's a file access error, try to clean up temporary files
-                            if (
-                                vimeoError.message.includes(
-                                    "acceso al archivo"
-                                ) ||
-                                vimeoError.message.includes("access")
-                            ) {
-                                console.log(
-                                    "Detected file access error, cleaning up temporary files..."
-                                );
-                                try {
-                                    // Try to delete temporary files that might be locked
-                                    const tempFiles = [
-                                        `${outputPath}.part`,
-                                        `${outputPath}.ytdl`,
-                                        `${outputPath}.temp`,
-                                    ];
-
-                                    for (const tempFile of tempFiles) {
-                                        try {
-                                            await fs.access(tempFile);
-                                            await fs.unlink(tempFile);
-                                            console.log(
-                                                `Deleted temporary file: ${tempFile}`
-                                            );
-                                        } catch (e) {
-                                            // Ignore errors if file doesn't exist
-                                        }
-                                    }
-                                } catch (cleanupError) {
-                                    console.log(
-                                        `Could not clean up temporary files: ${cleanupError.message}`
-                                    );
-                                }
-                            }
-
-                            if (attempt === maxRetries) {
-                                console.log(
-                                    "Maximum retries exhausted with main method"
-                                );
-                            } else {
-                                continue; // Try again
-                            }
-                        }
-                    }
-                }
-            }
-
-            // If Vimeo iframe was not found or download failed
-            console.log(`❌ Could not download video: ${videoUrl}`);
-        } catch (error) {
-            console.error(`Error downloading video: ${error.message}`);
-        }
+        return await this.videoDownloader.downloadVideo(videoUrl, outputPath);
     }
     async close() {
         if (this.browser) {
