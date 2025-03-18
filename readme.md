@@ -103,7 +103,7 @@ The tool now automatically checks for missing or incomplete files after download
 
 ## TODO
 -   [x] Fix bug causing incomplete downloads of course videos
--   [ ] Implement automatic joining of audio and video files
+-   [x] Implement automatic joining of audio and video files
 -   [ ] Add progress bars for downloads
 -   [ ] Support for custom video quality selection
 
