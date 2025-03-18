@@ -1,76 +1,76 @@
-# Video Merger para VueSchool Downloader
+# Video Merger for VueSchool Downloader
 
-Esta herramienta permite unir los archivos de video y audio descargados de VueSchool en un solo archivo MP4 de alta calidad.
+This tool allows you to merge video and audio files downloaded from VueSchool into a single high-quality MP4 file.
 
-## Requisitos
+## Requirements
 
--   Python 3.6 o superior
--   FFmpeg instalado y disponible en el PATH del sistema
+-   Python 3.6 or higher
+-   FFmpeg installed and available in the system PATH
 
-## Instalación de dependencias
+## Installing Dependencies
 
-### Instalar Python
+### Install Python
 
-Descarga e instala Python desde [python.org](https://www.python.org/downloads/)
+Download and install Python from [python.org](https://www.python.org/downloads/)
 
-### Instalar FFmpeg
+### Install FFmpeg
 
-1. Descarga FFmpeg desde [ffmpeg.org](https://ffmpeg.org/download.html)
-2. Asegúrate de que esté disponible en el PATH del sistema
+1. Download FFmpeg from [ffmpeg.org](https://ffmpeg.org/download.html)
+2. Make sure it's available in your system PATH
 
-## Uso
+## Usage
 
-### Desde la línea de comandos
+### From the Command Line
 
 ```bash
-# Unir todos los cursos en la carpeta de descargas
+# Merge all courses in the downloads folder
 node src/utils/mergeVideos.js
 
-# Especificar una carpeta de entrada diferente
-node src/utils/mergeVideos.js -i "ruta/a/carpeta"
+# Specify a different input folder
+node src/utils/mergeVideos.js -i "path/to/folder"
 
-# Procesar un curso específico
-node src/utils/mergeVideos.js -c "Nombre del Curso"
+# Process a specific course
+node src/utils/mergeVideos.js -c "Course Name"
 
-# Conservar archivos originales después de la mezcla
+# Keep original files after merging
 node src/utils/mergeVideos.js -k
 ```
 
-### Desde el código
+### From Code
 
 ```javascript
 import { mergeVideos } from "./src/utils/mergeVideos.js";
 
-// Unir todos los cursos en la carpeta de descargas predeterminada
+// Merge all courses in the default downloads folder
 await mergeVideos();
 
-// Especificar opciones
+// Specify options
 await mergeVideos({
-    inputDir: "./ruta/a/carpeta",
-    courseName: "Nombre del Curso", // opcional
-    keepOriginals: true, // conservar archivos originales
+    inputDir: "./path/to/folder",
+    courseName: "Course Name", // optional
+    keepOriginals: true, // keep original files
 });
 ```
 
-## Estructura de archivos
+## File Structure
 
-La herramienta busca pares de archivos de video y audio con el siguiente formato:
+The tool looks for pairs of video and audio files with the following format:
 
--   Video: `01-Nombre de la lección.fhls-fastly_skyfire-XXX.mp4`
--   Audio: `01-Nombre de la lección.fhls-fastly_skyfire-audio-high-English.mp4`
+-   Video: `01-Lesson Name.fhls-fastly_skyfire-XXX.mp4`
+-   Audio: `01-Lesson Name.fhls-fastly_skyfire-audio-high-English.mp4`
 
-Por defecto, los archivos originales se eliminarán automáticamente después de una mezcla exitosa. Si deseas conservarlos, utiliza la opción `-k` o `keepOriginals: true`.
+By default, original files will be automatically deleted after a successful merge. If you want to keep them, use the `-k` option or `keepOriginals: true`.
 
-Los archivos unidos se guardarán en la carpeta `downloads` con la siguiente estructura:
+Merged files will be saved in the `downloads` folder with the following structure:
 
 ```
 downloads/
-  Nombre del Curso/
-    01-Nombre de la lección.mp4
-    02-Nombre de la lección.mp4
+  Course Name/
+    01-Lesson Name.mp4
+    02-Lesson Name.mp4
     ...
 ```
 
-## Integración con el flujo de trabajo
+## Workflow Integration
 
-Esta herramienta puede integrarse con el flujo de trabajo existente para unir automáticamente los archivos después de la descarga. Para ello, se puede modificar el archivo `scraper.js` para llamar a la función `mergeVideos` después de completar la descarga de un curso.
+This tool can be integrated with the existing workflow to automatically merge files after downloading. To do this, you can modify the `scraper.js` file to call the `mergeVideos` function after completing a course download.
