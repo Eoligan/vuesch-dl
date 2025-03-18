@@ -3,6 +3,7 @@ import re
 import subprocess
 import argparse
 from pathlib import Path
+from send2trash import send2trash  # Para enviar archivos a la papelera en lugar de eliminarlos
 
 
 class VideoMerger:
@@ -146,13 +147,13 @@ class VideoMerger:
 
 
     def _delete_original_files(self, successful_pairs):
-        """Delete original video and audio files after successful merging"""
+        """Envía los archivos originales de video y audio a la papelera de reciclaje después de una fusión exitosa"""
         for pair in successful_pairs:
             try:
-                os.remove(pair['video'])
-                os.remove(pair['audio'])
+                send2trash(pair['video'])
+                send2trash(pair['audio'])
             except Exception as e:
-                print(f"Error al eliminar archivos originales: {e}")
+                print(f"Error al enviar archivos originales a la papelera: {e}")
 
 
 def main():

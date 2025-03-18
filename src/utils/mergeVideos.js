@@ -26,6 +26,9 @@ export async function mergeVideos(options = {}) {
         // Check if FFmpeg is installed
         await checkFFmpegInstalled();
 
+        // Check if send2trash Python package is installed
+        await checkSend2TrashInstalled();
+
         // Path to the Python script
         const scriptPath = path.join(
             process.cwd(),
@@ -137,6 +140,62 @@ async function checkFFmpegInstalled() {
         console.error(
             "Please install FFmpeg from https://ffmpeg.org/download.html"
         );
+        throw error;
+    }
+}
+
+/**
+ * Check if send2trash Python package is installed and install it if not
+ * @returns {Promise<void>}
+ */
+async function checkSend2TrashInstalled() {
+    try {
+        await new Promise((resolve, reject) => {
+            // Check if send2trash is installed
+            const pythonProcess = spawn("python", ["-c", "import send2trash"]);
+
+            pythonProcess.on("close", (code) => {
+                if (code === 0) {
+                    resolve();
+                } else {
+                    console.log("Installing send2trash Python package...");
+                    // If not installed, install it
+                    const pipProcess = spawn("pip", ["install", "send2trash"]);
+
+                    pipProcess.on("close", (pipCode) => {
+                        if (pipCode === 0) {
+                            console.log(
+                                "send2trash package installed successfully."
+                            );
+                            resolve();
+                        } else {
+                            reject(
+                                new Error(
+                                    "Failed to install send2trash package"
+                                )
+                            );
+                        }
+                    });
+
+                    pipProcess.on("error", (err) => {
+                        reject(
+                            new Error(
+                                `Error installing send2trash: ${err.message}`
+                            )
+                        );
+                    });
+                }
+            });
+
+            pythonProcess.on("error", (err) => {
+                reject(
+                    new Error(`Error checking for send2trash: ${err.message}`)
+                );
+            });
+        });
+    } catch (error) {
+        console.error("Failed to ensure send2trash package is installed.");
+        console.error(error.message);
         throw error;
     }
 }

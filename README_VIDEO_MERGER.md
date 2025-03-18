@@ -59,7 +59,7 @@ The tool looks for pairs of video and audio files with the following format:
 -   Video: `01-Lesson Name.fhls-fastly_skyfire-XXX.mp4`
 -   Audio: `01-Lesson Name.fhls-fastly_skyfire-audio-high-English.mp4`
 
-By default, original files will be automatically deleted after a successful merge. If you want to keep them, use the `-k` option or `keepOriginals: true`.
+By default, original files will be automatically moved to the recycle bin after a successful merge. This provides an extra layer of safety in case something goes wrong. If you want to keep the original files in their original location, use the `-k` option or `keepOriginals: true`.
 
 Merged files will be saved in the `downloads` folder with the following structure:
 
