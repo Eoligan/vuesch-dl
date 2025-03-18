@@ -101,7 +101,19 @@ The tool now automatically checks for missing or incomplete files after download
     vuesch-dl https://vueschool.io/courses/vuejs-3-fundamentals -e your@email.com -p yourpassword -f
     ```
 
+### Video and Audio Merger
+
+This tool now includes a powerful video merger utility that automatically combines the separate video and audio files downloaded from Vue School into high-quality MP4 files:
+
+-   Automatically merges video and audio streams into a single file
+-   Supports batch processing of entire courses
+-   Provides options to keep or delete original files after merging
+-   Requires Python 3.6+ and FFmpeg
+
+For detailed instructions on using the video merger tool, please refer to the [Video Merger Documentation](./README_VIDEO_MERGER.md).
+
 ## TODO
+
 -   [x] Fix bug causing incomplete downloads of course videos
 -   [x] Implement automatic joining of audio and video files
 -   [ ] Add progress bars for downloads
